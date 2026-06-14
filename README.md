@@ -1,3 +1,3 @@
 # Timer-App
-Fucking easy app.
-Set time, and press button.
+Very easy to use.
+Just set time, and press button.
