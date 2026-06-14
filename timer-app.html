@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a26;
+      --border: rgba(255, 255, 255, 0.07);
+      --border2: rgba(255, 255, 255, 0.13);
+      --text: #f0f0f8;
+      --muted: rgba(240, 240, 248, 0.38);
+      --muted2: rgba(240, 240, 248, 0.6);
+      --accent: #7c6bff;
+      --accent2: #4fc4a0;
+      --amber: #f0a050;
+      --red: #ff5f5f;
+      --mono: 'DM Mono', monospace;
+      --sans: 'DM Sans', system-ui, sans-serif;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html {
+      height: 100%;
+      -webkit-tap-highlight-color: transparent
+    }
+
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 40px);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 24px 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .wordmark {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 4px;
+    }
+
+    /* tabs */
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      gap: 3px;
+    }
+
+    .tab {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .04em;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 6px;
+      border-radius: calc(var(--radius) - 4px);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .tab.on {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+    }
+
+    .tab:not(.on):hover {
+      color: var(--muted2)
+    }
+
+    /* card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ring */
+    .ring-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .ring-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%
+    }
+
+    .ring-track {
+      fill: none;
+      stroke: var(--border2);
+      stroke-width: 5
+    }
+
+    .ring-fill {
+      fill: none;
+      stroke-width: 5;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset .9s cubic-bezier(.4, 0, .2, 1), stroke .4s ease;
+    }
+
+    .ring-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      z-index: 1;
+    }
+
+    .time-num {
+      font-family: var(--mono);
+      font-size: 52px;
+      font-weight: 300;
+      letter-spacing: -.02em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .time-ms {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--muted2);
+      letter-spacing: .02em;
+    }
+
+    .ring-label {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* time inputs */
+    .t-inputs {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .t-inp-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .t-inp-cell label {
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .t-inp-cell input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 400;
+      text-align: center;
+      padding: 10px 4px;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .t-inp-cell input::-webkit-inner-spin-button,
+    .t-inp-cell input::-webkit-outer-spin-button {
+      -webkit-appearance: none
+    }
+
+    .t-inp-cell input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 107, 255, .15);
+    }
+
+    .t-sep {
+      font-family: var(--mono);
+      font-size: 20px;
+      color: var(--border2);
+      padding-bottom: 10px;
+    }
+
+    /* buttons */
+    .btns {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted2);
+      border-radius: var(--radius-sm);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: .02em;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      padding: 0 16px;
+      height: 46px;
+    }
+
+    .btn:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border2)
+    }
+
+    .btn:active {
+      transform: scale(.97)
+    }
+
+    .btn:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .btn-icon {
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-main {
+      flex: 1;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .btn-main:hover {
+      background: rgba(124, 107, 255, .85);
+      border-color: rgba(124, 107, 255, .85);
+      color: #fff
+    }
+
+    .btn-main.pause {
+      background: var(--surface2);
+      border-color: var(--border2);
+      color: var(--text);
+    }
+
+    .btn-main.pause:hover {
+      background: var(--surface2)
+    }
+
+    /* icon */
+    .ico {
+      display: block;
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    /* laps */
+    .laps-wrap {
+      width: 100%;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .laps-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 2px;
+    }
+
+    .laps-scroll {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .laps-scroll::-webkit-scrollbar {
+      width: 3px
+    }
+
+    .laps-scroll::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    .laps-scroll::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 2px
+    }
+
+    .lap-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
+    .lap-n {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .lap-t {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text)
+    }
+
+    .lap-t.best {
+      color: var(--accent2)
+    }
+
+    .lap-t.worst {
+      color: var(--amber)
+    }
+
+    /* pomo dots */
+    .pomo-dots {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pdot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border2);
+      transition: background .3s, transform .3s;
+    }
+
+    .pdot.done {
+      background: var(--accent2);
+      transform: scale(1.1)
+    }
+
+    .pdot.active {
+      background: var(--accent)
+    }
+
+    .pdot.brk {
+      background: var(--amber)
+    }
+
+    /* pomo badge */
+    .pomo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      border: 1px solid;
+    }
+
+    .pomo-badge.work {
+      color: rgba(124, 107, 255, .9);
+      border-color: rgba(124, 107, 255, .3);
+      background: rgba(124, 107, 255, .08)
+    }
+
+    .pomo-badge.short {
+      color: rgba(79, 196, 160, .9);
+      border-color: rgba(79, 196, 160, .3);
+      background: rgba(79, 196, 160, .08)
+    }
+
+    .pomo-badge.long {
+      color: rgba(240, 160, 80, .9);
+      border-color: rgba(240, 160, 80, .3);
+      background: rgba(240, 160, 80, .08)
+    }
+
+    .pbadge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor
+    }
+
+    /* pomo settings */
+    .pomo-settings {
+      width: 100%;
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .ps-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 5px
+    }
+
+    .ps-cell label {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted)
+    }
+
+    .ps-cell input {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 18px;
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: var(--radius-sm);
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .ps-cell input::-webkit-inner-spin-button,
+    .ps-cell input::-webkit-outer-spin-button {
+      -webkit-appearance: none
+    }
+
+    .ps-cell input:focus {
+      outline: none;
+      border-color: var(--accent)
+    }
+
+    .ps-cell.full {
+      grid-column: 1/-1
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      margin: 6px 0
+    }
+
+    .apply-row {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .apply-hint {
+      font-size: 11px;
+      color: var(--muted)
+    }
+
+    /* toast notification */
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      z-index: 9999;
+      transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), opacity .3s;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1
+    }
+
+    .toast-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    /* responsive */
+    @media(max-width:380px) {
+      .shell {
+        padding: 16px 12px 0
+      }
+
+      .time-num {
+        font-size: 44px
+      }
+
+      .card {
+        padding: 22px 16px 20px
+      }
+
+      .ring-wrap {
+        width: 190px;
+        height: 190px
+      }
+    }
+
+    @media(min-width:600px) {
+      .shell {
+        padding: 40px 20px 0
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+
+      .ring-fill,
+      .pdot {
+        transition: none
+      }
+
+      * {
+        animation: none !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- toast -->
+  <div class="toast" id="toast">
+    <span class="toast-dot" id="toast-dot"></span>
+    <span id="toast-msg"></span>
+  </div>
+
+  <div class="shell">
+    <p class="wordmark">Timer</p>
+
+    <div class="tabs">
+      <button class="tab on" onclick="switchTab('timer')" id="tab-timer">タイマー</button>
+      <button class="tab" onclick="switchTab('sw')" id="tab-sw">ストップウォッチ</button>
+      <button class="tab" onclick="switchTab('pomo')" id="tab-pomo">ポモドーロ</button>
+    </div>
+
+    <!-- TIMER -->
+    <div id="panel-timer" class="card">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 220 220">
+          <circle class="ring-track" cx="110" cy="110" r="96" />
+          <circle class="ring-fill" id="t-ring" cx="110" cy="110" r="96" stroke="#7c6bff" stroke-dasharray="603"
+            stroke-dashoffset="0" />
+        </svg>
+        <div class="ring-inner">
+          <div class="time-num" id="t-display">05:00</div>
+          <div class="ring-label" id="t-label">準備中</div>
+        </div>
+      </div>
+      <div class="t-inputs" id="t-inputs">
+        <div class="t-inp-cell"><label>時間</label><input type="number" id="t-h" min="0" max="23" value="0"></div>
+        <span class="t-sep">:</span>
+        <div class="t-inp-cell"><label>分</label><input type="number" id="t-m" min="0" max="59" value="5"></div>
+        <span class="t-sep">:</span>
+        <div class="t-inp-cell"><label>秒</label><input type="number" id="t-s" min="0" max="59" value="0"></div>
+      </div>
+      <div class="btns">
+        <button class="btn btn-icon" onclick="tReset()" title="リセット">
+          <svg class="ico" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 .49-3.14" />
+          </svg>
+        </button>
+        <button class="btn btn-main" id="t-main-btn" onclick="tToggle()">
+          <svg class="ico" viewBox="0 0 24 24" id="t-play-ico">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span id="t-btn-txt">スタート</span>
+        </button>
+        <button class="btn btn-icon" id="t-lap-btn" onclick="tLap()" disabled title="ラップ">
+          <svg class="ico" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </button>
+      </div>
+      <div id="t-laps-wrap" class="laps-wrap" style="display:none">
+        <div class="laps-head"><span>ラップ</span><span id="t-lap-count">0</span></div>
+        <div class="laps-scroll" id="t-lap-list"></div>
+      </div>
+    </div>
+
+    <!-- STOPWATCH -->
+    <div id="panel-sw" class="card" style="display:none">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 220 220">
+          <circle class="ring-track" cx="110" cy="110" r="96" />
+          <circle class="ring-fill" id="sw-ring" cx="110" cy="110" r="96" stroke="#4fc4a0" stroke-dasharray="603"
+            stroke-dashoffset="603" />
+        </svg>
+        <div class="ring-inner">
+          <div class="time-num" id="sw-display">00:00</div>
+          <div class="time-ms" id="sw-ms">.00</div>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="btn btn-icon" onclick="swReset()" title="リセット">
+          <svg class="ico" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 .49-3.14" />
+          </svg>
+        </button>
+        <button class="btn btn-main" id="sw-main-btn" onclick="swToggle()">
+          <svg class="ico" viewBox="0 0 24 24" id="sw-play-ico">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span id="sw-btn-txt">スタート</span>
+        </button>
+        <button class="btn btn-icon" id="sw-lap-btn" onclick="swLap()" disabled title="ラップ">
+          <svg class="ico" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </button>
+      </div>
+      <div id="sw-laps-wrap" class="laps-wrap" style="display:none">
+        <div class="laps-head"><span>ラップ</span><span id="sw-lap-count">0</span></div>
+        <div class="laps-scroll" id="sw-lap-list"></div>
+      </div>
+    </div>
+
+    <!-- POMODORO -->
+    <div id="panel-pomo" class="card" style="display:none">
+      <div id="pomo-dots" class="pomo-dots"></div>
+      <div class="pomo-badge work" id="pomo-badge">
+        <span class="pbadge-dot"></span>
+        <span id="pomo-badge-txt">作業中</span>
+      </div>
+      <div class="ring-wrap" style="margin-bottom:20px">
+        <svg class="ring-svg" viewBox="0 0 220 220">
+          <circle class="ring-track" cx="110" cy="110" r="96" />
+          <circle class="ring-fill" id="pomo-ring" cx="110" cy="110" r="96" stroke="#7c6bff" stroke-dasharray="603"
+            stroke-dashoffset="0" />
+        </svg>
+        <div class="ring-inner">
+          <div class="time-num" id="pomo-display">25:00</div>
+          <div class="ring-label" id="pomo-label">セッション 1 / 4</div>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="btn btn-icon" onclick="pomoReset()" title="リセット">
+          <svg class="ico" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 .49-3.14" />
+          </svg>
+        </button>
+        <button class="btn btn-main" id="pomo-main-btn" onclick="pomoToggle()">
+          <svg class="ico" viewBox="0 0 24 24" id="pomo-play-ico">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span id="pomo-btn-txt">スタート</span>
+        </button>
+        <button class="btn btn-icon" onclick="pomoSkip()" title="スキップ">
+          <svg class="ico" viewBox="0 0 24 24">
+            <polygon points="5 4 15 12 5 20 5 4" />
+            <line x1="19" y1="5" x2="19" y2="19" />
+          </svg>
+        </button>
+      </div>
+      <div class="divider" style="margin-top:20px"></div>
+      <div class="pomo-settings">
+        <div class="ps-cell"><label>作業（分）</label><input type="number" id="pomo-work" min="1" max="60" value="25"></div>
+        <div class="ps-cell"><label>短い休憩（分）</label><input type="number" id="pomo-short" min="1" max="30" value="5">
+        </div>
+        <div class="ps-cell"><label>長い休憩（分）</label><input type="number" id="pomo-long" min="1" max="60" value="15">
+        </div>
+        <div class="ps-cell"><label>セット数</label><input type="number" id="pomo-sets" min="1" max="10" value="4"></div>
+        <div class="ps-cell full">
+          <div class="apply-row">
+            <span class="apply-hint">変更後に適用してください</span>
+            <button class="btn" style="height:36px;font-size:12px" onclick="pomoApply()">
+              <svg class="ico" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              適用
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const CIRC = 603;
+    const $ = id => document.getElementById(id);
+
+    /* ---- Audio (Web Audio API) ---- */
+    let _actx = null;
+    function getCtx() {
+      if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+      return _actx;
+    }
+    function beep(type = 'done') {
+      try {
+        const ctx = getCtx();
+        // resume if suspended (iOS)
+        if (ctx.state === 'suspended') ctx.resume();
+        const now = ctx.currentTime;
+        if (type === 'done') {
+          // 3-tone chime: C5 E5 G5
+          [[523, 0], [659, .18], [784, .36]].forEach(([freq, t]) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0, now + t);
+            g.gain.linearRampToValueAtTime(.28, now + t + .02);
+            g.gain.exponentialRampToValueAtTime(.001, now + t + .7);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(now + t); o.stop(now + t + .75);
+          });
+        } else if (type === 'break') {
+          // soft 2-tone: G4 E4
+          [[392, 0], [330, .22]].forEach(([freq, t]) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0, now + t);
+            g.gain.linearRampToValueAtTime(.22, now + t + .02);
+            g.gain.exponentialRampToValueAtTime(.001, now + t + .65);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(now + t); o.stop(now + t + .7);
+          });
+        } else if (type === 'finish') {
+          // celebration: C5 E5 G5 C6
+          [[523, 0], [659, .15], [784, .30], [1047, .48]].forEach(([freq, t]) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0, now + t);
+            g.gain.linearRampToValueAtTime(.25, now + t + .02);
+            g.gain.exponentialRampToValueAtTime(.001, now + t + .9);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(now + t); o.stop(now + t + .95);
+          });
+        }
+      } catch (e) { console.warn('audio:', e) }
+    }
+
+    /* ---- Toast ---- */
+    let _toastTimer = null;
+    function toast(msg, color = '#7c6bff') {
+      const el = $('toast');
+      $('toast-msg').textContent = msg;
+      $('toast-dot').style.background = color;
+      el.classList.add('show');
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    /* ---- Helpers ---- */
+    function setRing(id, ratio, color) {
+      const el = $(id);
+      el.style.strokeDashoffset = CIRC - (ratio * CIRC);
+      if (color) el.style.stroke = color;
+    }
+    function fmt2(n) { return String(Math.floor(n)).padStart(2, '0') }
+    function fmtTimer(s) {
+      if (s >= 3600) return `${fmt2(Math.floor(s / 3600))}:${fmt2(Math.floor((s % 3600) / 60))}:${fmt2(s % 60)}`;
+      return `${fmt2(Math.floor(s / 60))}:${fmt2(s % 60)}`;
+    }
+
+    /* ---- Tabs ---- */
+    function switchTab(t) {
+      ['timer', 'sw', 'pomo'].forEach(x => {
+        $('panel-' + x).style.display = x === t ? '' : 'none';
+        $('tab-' + x).classList.toggle('on', x === t);
+      });
+    }
+
+    /* ======== TIMER ======== */
+    let tLeft = 300, tTotal = 300, tRun = false, tId = null, tLaps = [], tPrevLeft = null;
+    function tGetSecs() {
+      return ((parseInt($('t-h').value) || 0) * 3600) + ((parseInt($('t-m').value) || 0) * 60) + (parseInt($('t-s').value) || 0);
+    }
+    function tRefreshDisplay() {
+      $('t-display').textContent = fmtTimer(tLeft);
+      const ratio = tTotal > 0 ? tLeft / tTotal : 0;
+      const color = tLeft < 60 ? '#ff5f5f' : tLeft < 300 ? '#f0a050' : '#7c6bff';
+      setRing('t-ring', ratio, color);
+    }
+    function tSetState(running) {
+      tRun = running;
+      const btn = $('t-main-btn');
+      const ico = $('t-play-ico');
+      $('t-btn-txt').textContent = running ? '一時停止' : 'スタート';
+      btn.classList.toggle('pause', running);
+      if (running) {
+        ico.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+        $('t-inputs').style.display = 'none';
+        $('t-lap-btn').disabled = false;
+        $('t-label').textContent = 'カウントダウン中';
+      } else {
+        ico.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+        $('t-inputs').style.display = 'flex';
+        $('t-lap-btn').disabled = true;
+      }
+    }
+    function tToggle() {
+      if (tRun) {
+        clearInterval(tId); tId = null; tSetState(false);
+        $('t-label').textContent = '一時停止中';
+      } else {
+        if (tLeft === 0) return;
+        if (tPrevLeft === null) { tTotal = tGetSecs(); tLeft = tTotal; if (!tLeft) return; tRefreshDisplay(); }
+        tPrevLeft = tLeft; tSetState(true);
+        tId = setInterval(() => {
+          tLeft--; tRefreshDisplay();
+          if (tLeft <= 0) {
+            clearInterval(tId); tId = null; tSetState(false);
+            $('t-label').textContent = '完了！';
+            beep('done');
+            toast('⏰ 時間です！', '#7c6bff');
+          }
+        }, 1000);
+      }
+    }
+    function tReset() {
+      clearInterval(tId); tId = null; tPrevLeft = null;
+      tTotal = tGetSecs() || 300; tLeft = tTotal;
+      tRefreshDisplay(); tSetState(false);
+      $('t-label').textContent = '準備中';
+      tLaps = []; renderTLaps();
+    }
+    function tLap() {
+      if (!tRun) return;
+      const split = tPrevLeft - tLeft;
+      tLaps.push({ split, total: tTotal - tLeft });
+      tPrevLeft = tLeft;
+      renderTLaps();
+    }
+    function renderTLaps() {
+      $('t-lap-count').textContent = tLaps.length + '回';
+      if (!tLaps.length) { $('t-laps-wrap').style.display = 'none'; return; }
+      $('t-laps-wrap').style.display = '';
+      const splits = tLaps.map(l => l.split);
+      const best = Math.max(...splits), worst = Math.min(...splits);
+      $('t-lap-list').innerHTML = [...tLaps].reverse().map((l, ri) => {
+        const i = tLaps.length - 1 - ri;
+        const cls = tLaps.length > 1 ? l.split === best ? 'best' : l.split === worst ? 'worst' : '' : '';
+        return `<div class="lap-row"><span class="lap-n">Lap ${i + 1}</span><span class="lap-t ${cls}">${fmtTimer(l.split)}</span></div>`;
+      }).join('');
+    }
+
+    /* ======== STOPWATCH ======== */
+    let swMs = 0, swRun = false, swId = null, swLaps = [], swPrev = 0;
+    function swRefresh() {
+      const secs = Math.floor(swMs / 100);
+      const ms = swMs % 100;
+      $('sw-display').textContent = fmtTimer(secs);
+      $('sw-ms').textContent = '.' + fmt2(ms);
+      setRing('sw-ring', (swMs % 6000) / 6000, null);
+    }
+    function swSetState(running) {
+      swRun = running;
+      const ico = $('sw-play-ico');
+      $('sw-btn-txt').textContent = running ? '一時停止' : 'スタート';
+      $('sw-main-btn').classList.toggle('pause', running);
+      if (running) {
+        ico.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+        $('sw-lap-btn').disabled = false;
+      } else {
+        ico.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+      }
+    }
+    function swToggle() {
+      if (swRun) { clearInterval(swId); swId = null; swSetState(false); }
+      else {
+        swSetState(true);
+        swId = setInterval(() => { swMs++; swRefresh(); }, 10);
+      }
+    }
+    function swReset() {
+      clearInterval(swId); swId = null; swMs = 0; swPrev = 0;
+      swRefresh(); swSetState(false);
+      $('sw-lap-btn').disabled = true;
+      swLaps = []; renderSwLaps();
+    }
+    function swLap() {
+      const split = swMs - swPrev; swPrev = swMs;
+      swLaps.push({ split, total: swMs });
+      renderSwLaps();
+    }
+    function renderSwLaps() {
+      $('sw-lap-count').textContent = swLaps.length + '回';
+      if (!swLaps.length) { $('sw-laps-wrap').style.display = 'none'; return; }
+      $('sw-laps-wrap').style.display = '';
+      const splits = swLaps.map(l => l.split);
+      const best = Math.min(...splits), worst = Math.max(...splits);
+      $('sw-lap-list').innerHTML = [...swLaps].reverse().map((l, ri) => {
+        const i = swLaps.length - 1 - ri;
+        const cls = swLaps.length > 1 ? l.split === best ? 'best' : l.split === worst ? 'worst' : '' : '';
+        const secs = Math.floor(l.split / 100);
+        const ms = l.split % 100;
+        return `<div class="lap-row"><span class="lap-n">Lap ${i + 1}</span><span class="lap-t ${cls}">${fmtTimer(secs)}.${fmt2(ms)}</span></div>`;
+      }).join('');
+    }
+
+    /* ======== POMODORO ======== */
+    let pWork = 25, pShort = 5, pLong = 15, pSets = 4;
+    let pCur = 0, pPhase = 'work', pLeft = 0, pTotal = 0, pRun = false, pId = null;
+
+    function pGetSettings() {
+      pWork = parseInt($('pomo-work').value) || 25;
+      pShort = parseInt($('pomo-short').value) || 5;
+      pLong = parseInt($('pomo-long').value) || 15;
+      pSets = parseInt($('pomo-sets').value) || 4;
+    }
+    function pPhaseTime() {
+      if (pPhase === 'work') return pWork * 60;
+      if (pPhase === 'short') return pShort * 60;
+      return pLong * 60;
+    }
+    function pWorkCount() { return Math.floor(pCur / 2) + 1 }
+    function pSessionLabel() {
+      if (pPhase === 'work') return `セッション ${Math.min(pWorkCount(), pSets)} / ${pSets}`;
+      if (pPhase === 'short') return '短い休憩';
+      return '長い休憩';
+    }
+    function pRingColor() {
+      return pPhase === 'work' ? '#7c6bff' : pPhase === 'short' ? '#4fc4a0' : '#f0a050';
+    }
+    function pUpdateBadge() {
+      const b = $('pomo-badge');
+      const t = $('pomo-badge-txt');
+      if (pPhase === 'work') { b.className = 'pomo-badge work'; t.textContent = '作業中'; }
+      else if (pPhase === 'short') { b.className = 'pomo-badge short'; t.textContent = '短い休憩'; }
+      else { b.className = 'pomo-badge long'; t.textContent = '長い休憩'; }
+    }
+    function pUpdateUI() {
+      $('pomo-display').textContent = fmtTimer(pLeft);
+      $('pomo-label').textContent = pSessionLabel();
+      setRing('pomo-ring', pTotal > 0 ? pLeft / pTotal : 0, pRingColor());
+      pUpdateBadge();
+      renderPDots();
+    }
+    function renderPDots() {
+      let h = '';
+      for (let i = 0; i < pSets; i++) {
+        const wStep = i * 2; const bStep = i * 2 + 1;
+        const wDone = pCur > wStep;
+        const wActive = pCur === wStep && pPhase === 'work';
+        const bDone = pCur > bStep;
+        const bActive = (pCur === bStep) && (pPhase === 'short' || pPhase === 'long');
+        h += `<div class="pdot ${wDone ? 'done' : wActive ? 'active' : ''}"></div>`;
+        if (i < pSets - 1) h += `<div class="pdot ${bDone ? 'done' : bActive ? 'brk' : ''}"></div>`;
+      }
+      $('pomo-dots').innerHTML = h;
+    }
+    function pomoInit() {
+      pGetSettings();
+      pCur = 0; pPhase = 'work'; pTotal = pWork * 60; pLeft = pTotal;
+      pUpdateUI();
+    }
+    function pomoApply() { clearInterval(pId); pId = null; pRun = false; pSetState(false); pomoInit(); }
+
+    function pSetState(running) {
+      pRun = running;
+      const ico = $('pomo-play-ico');
+      $('pomo-btn-txt').textContent = running ? '一時停止' : 'スタート';
+      $('pomo-main-btn').classList.toggle('pause', running);
+      ico.innerHTML = running
+        ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+        : '<polygon points="5 3 19 12 5 21 5 3"/>';
+    }
+
+    /* 自動進行: フェーズ終了後1.5秒後に次へ */
+    function pomoNext(auto) {
+      pCur++;
+      const wDone = Math.ceil(pCur / 2);
+      if (wDone >= pSets && pCur % 2 === 0) {
+        beep('finish');
+        toast('🎉 全セット完了！お疲れさまでした！', '#4fc4a0');
+        pomoReset(); return;
+      }
+      if (pCur % 2 === 1) {
+        pPhase = wDone === pSets ? 'long' : 'short';
+      } else {
+        pPhase = 'work';
+      }
+      pTotal = pPhaseTime(); pLeft = pTotal;
+      pUpdateUI();
+      // 自動進行: 次フェーズを自動スタート
+      if (auto) {
+        pRun = true;
+        pSetState(true);
+        pId = setInterval(pTick, 1000);
+      }
+    }
+    function pTick() {
+      pLeft--; pUpdateUI();
+      if (pLeft <= 0) {
+        clearInterval(pId); pId = null;
+        if (pPhase === 'work') {
+          beep('done');
+          toast('⏰ 作業終了！休憩へ移ります', '#7c6bff');
+        } else {
+          beep('break');
+          toast('🌿 休憩終了！作業を再開します', '#4fc4a0');
+        }
+        // 1.5秒後に自動で次のフェーズへ
+        setTimeout(() => pomoNext(true), 1500);
+      }
+    }
+    function pomoToggle() {
+      if (pRun) {
+        clearInterval(pId); pId = null; pSetState(false);
+      } else {
+        pSetState(true);
+        pId = setInterval(pTick, 1000);
+      }
+    }
+    function pomoSkip() {
+      clearInterval(pId); pId = null;
+      if (pPhase === 'work') { beep('done'); } else { beep('break'); }
+      pomoNext(pRun); // スキップ時も実行中なら自動継続
+    }
+    function pomoReset() {
+      clearInterval(pId); pId = null; pRun = false; pSetState(false);
+      pCur = 0; pPhase = 'work'; pTotal = pWork * 60; pLeft = pTotal; pUpdateUI();
+    }
+
+    /* init */
+    tRefreshDisplay();
+    swRefresh();
+    pomoInit();
+
+    // iOS: AudioContext要resume on first user gesture
+    document.addEventListener('touchstart', () => { try { getCtx().resume(); } catch (e) { } }, { once: true, passive: true });
+  </script>
+</body>
+
+</html>
