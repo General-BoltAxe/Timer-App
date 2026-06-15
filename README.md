@@ -1,12 +1,35 @@
 # Timer-App
-Very easy to use.
-Just set time, and press button.
 
-Ver1.1.1(2026/6/15 10:10 JST)
-<br>Removed the maximum value for the input box to set hour.
-<br>Refined trivial bugs.
+A simple and easy-to-use timer application.
+Just set the time and press the button. That’s it.
 
-Ver 1.1.0 (2026/6/14 18:08 JST)
-<br>・Added sound feedback.
-<br>・Changed the settings so that the next timer starts automatically once one step of Pomodoro timer has finished.
-<br>・URL has been changed.
+## Features
+
+* Simple UI with minimal controls
+* Customizable timer duration
+* Sound feedback when the timer ends
+* Automatic start for the next session (Pomodoro-style)
+
+## Usage
+
+1. Set the desired time (hours, minutes, seconds)
+2. Press the start button
+3. Wait for the timer to finish
+
+## Changelog
+
+### Ver 1.1.1 (2026/6/15 10:10 JST)
+
+* Removed the maximum value limit for the hour input field
+* Fixed minor bugs
+
+### Ver 1.1.0 (2026/6/14 18:08 JST)
+
+* Added sound feedback
+* Enabled automatic start for the next Pomodoro step
+* Updated URL
+
+## Notes
+
+* Designed for simplicity
+* Behavior may vary depending on environment
